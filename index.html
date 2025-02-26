@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบติดตามสุขภาพจิต</title>
+    <!-- เพิ่ม Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <!-- ลิงก์ใหม่ที่ถูกต้อง -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.2.1/dist/chart.umd.min.js"></script>
+
+    <style>
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('https://static.thairath.co.th/media/4DQpjUtzLUwmJZZSE61dsDVnobklYp4HIxgKw8qyoKKf.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            opacity: 0.5; /* ปรับค่าให้สีอ่อนลง */
+            z-index: -1;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        .navbar {
+            background-color: #0d3564;
+            background-size: cover;
+            background-position: center;
+            height: 100px; /* ปรับเพิ่มความสูง */
+            color: white; /* ให้ตัวอักษรสีขาวเพื่อให้มองเห็น */
+            text-align: center;
+    }
+
+        .btn-primary {
+            background-color: #0d3564;
+            border-color: #0d3564;
+        }
+
+        .mood-form {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 10px;
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2); /* เพิ่มเงาให้ดูมีมิติ */
+        }
+        #moodChart {
+            max-height: 400px;
+            background-color: rgba(255, 255, 255, 0.8); /* ตั้งค่าพื้นหลังเป็นสีขาว */
+            padding: 10px; 
+            border-radius: 10px; 
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2); /* เพิ่มเงาให้ดูมีมิติ */
+        }
+        #patientMoodChart {
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: -35px 0 0 0 rgba(255, 255, 255, 0.8), 35px 0 0 0 rgba(255, 255, 255, 0.8); /* ขยายกรอบแค่ด้านซ้ายและขวา */
+        }
+
+       /* กำหนดสีพื้นหลังของ select */
+        .status-pending { background-color: rgb(255, 237, 99) !important; color: rgb(13, 12, 12) !important; }
+        .status-confirmed { background-color: rgb(55, 104, 201) !important; color: white !important; }
+        .status-canceled { background-color: rgb(221, 95, 139) !important; color: white !important; }
+        .status-complete { background-color: rgb(67, 195, 191) !important; color: white !important; }
+
+        /* ปรับปรุงสไตล์ของ <select> */
+        .form-control {
+            border: none;
+            border-radius: 5px;
+            padding: 5px;
+            transition: background-color 0.3s ease-in-out;
+            font-weight: normal !important; /* ตัวอักษรปกติ */
+        }
+
+
+
+        .appointment-section {
+            margin-top: 30px;
+        }
+
+        #appointmentList {
+            width: 100%;              /* กำหนดความกว้างเต็มที่ */
+            height: 400px;            /* กำหนดความสูงของบล็อก */
+            overflow-y: auto;         /* ให้บล็อกสามารถเลื่อนขึ้นได้ */
+            border: 1px solid #ddd;   /* ขอบของบล็อก */
+            padding: 10px;
+            background-color: #f9f9f9; /* สีพื้นหลัง */
+            box-sizing: border-box;   /* ให้ขนาดรวมขอบและ padding */
+            flex-grow: 1;             /* ทำให้ขยายเต็มพื้นที่ในคอลัมน์ */
+        }
+
+        #patientList {
+            max-height: 400px;   /* กำหนดความสูงสูงสุดของกรอบ */
+            overflow-y: auto;    /* ให้กรอบสามารถเลื่อนขึ้นได้ */
+            border: 1px solid #ffffff;  /* กรอบที่มีขอบ */
+            padding: 10px;
+            background-color: #ffffff; /* สีพื้นหลัง */
+            box-sizing: border-box;  /* ปรับขนาดให้เหมาะสม */
+        }
+
+        .card, .appointment-section, .recommendation-section, .patient-list, .mood-chart-container {
+            background-color: rgba(187, 203, 222, 0.581);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2); /* เพิ่มเงาให้ดูมีมิติ */
+        }
+
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark mb-4">
+        <div class="container">
+            <a class="navbar-brand fs-3" href="#">ระบบติดตามสุขภาพจิต</a>
+
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item" id="doctorNavItem" style="display: none;">
+                        <a class="nav-link" href="doctor_list.html">จัดการข้อมูลแพทย์</a>
+                    </li>
+                </ul>
+                <span class="navbar-text" id="userInfo"></span>
+                <button class="btn btn-light ms-3" onclick="logout()">ออกจากระบบ</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Login Page -->
+    <div id="loginPage" class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card p-4">
+                    <h2 class="text-center mb-4">เข้าสู่ระบบ</h2>
+                    <form id="loginForm">
+                        <div class="mb-3">
+                            <label for="email" class="form-label">อีเมล:</label>
+                            <input type="email" class="form-control" id="email" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="password" class="form-label">รหัสผ่าน:</label>
+                            <input type="password" class="form-control" id="password" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">เข้าสู่ระบบ</button>
+                    </form>
+                    <p class="mt-3 text-center">ยังไม่เป็นสมาชิก? <a href="#" onclick="showRegisterPage()">สมัครสมาชิก</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Register Page -->
+    <div id="registerPage" class="container" style="display: none;">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card p-4">
+                    <h2 class="text-center mb-4">สมัครสมาชิก</h2>
+                    <form id="registerForm">
+                        <div class="mb-3">
+                            <label for="reg_name" class="form-label">ชื่อ-นามสกุล:</label>
+                            <input type="text" class="form-control" id="reg_name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="reg_email" class="form-label">อีเมล:</label>
+                            <input type="email" class="form-control" id="reg_email" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="reg_password" class="form-label">รหัสผ่าน:</label>
+                            <input type="password" class="form-control" id="reg_password" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="reg_confirm_password" class="form-label">ยืนยันรหัสผ่าน:</label>
+                            <input type="password" class="form-control" id="reg_confirm_password" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="reg_role" class="form-label">สถานะ:</label>
+                            <select class="form-select" id="reg_role" required>
+                                <option value="patient">ผู้ป่วย</option>
+                                <option value="doctor">แพทย์/นักจิตวิทยา</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">สมัครสมาชิก</button>
+                    </form>
+                    <p class="mt-3 text-center">เป็นสมาชิกแล้ว? <a href="#" onclick="showLoginPage()">เข้าสู่ระบบ</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<!-- Patient Page -->
+<div id="patientPage" class="container" style="display: none;">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card p-4">
+                <h2>แนวโน้มสุขภาพจิตของคุณ</h2>
+                <canvas id="moodChart"></canvas>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card p-4">
+                <h3>บันทึกอารมณ์วันนี้</h3>
+                <form id="moodForm" class="mood-form">
+                    <div class="mb-3">
+                        <label class="form-label">ระดับอารมณ์:</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="mood" id="happy" value="happy" required>
+                            <label class="form-check-label" for="happy">Happy</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="mood" id="neutral" value="neutral">
+                            <label class="form-check-label" for="neutral">Neutral</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="mood" id="sad" value="sad">
+                            <label class="form-check-label" for="sad">Sad</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="mood" id="anxious" value="anxious">
+                            <label class="form-check-label" for="anxious">Anxious</label>
+                        </div>
+                    </div>
+                     <div class="mb-3">
+                        <label for="note" class="form-label">บันทึกเพิ่มเติม:</label>
+                        <textarea class="form-control" id="note" rows="3"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">บันทึก</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- การจัดกล่องการนัดหมายและคำแนะนำ -->
+    <div class="row mt-4">
+        <!-- กล่องนัดหมาย -->
+        <div class="col-md-6">
+            <div class="card p-4">
+                <h3>รายการนัดหมายของคุณ</h3>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#appointmentModal">นัดหมายใหม่</button>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>วันที่</th>
+                            <th>แพทย์ที่เข้าพบ</th>
+                            <th>สถานะ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="appointmentTableBody">
+                        <!-- รายการนัดหมายจะถูกแสดงที่นี่ -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- กล่องคำแนะนำล่าสุดจากแพทย์ -->
+        <div class="col-md-6">
+            <div class="card p-4">
+                <h3>คำแนะนำจากแพทย์</h3>
+                <div id="latestRecommendation">กำลังโหลดคำแนะนำ...</div>
+                    <!-- คำแนะนำจากแพทย์จะแสดงที่นี่ -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="appointmentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">นัดหมายใหม่</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="newAppointmentForm">
+                    <div class="mb-3">
+                        <label for="appointmentDoctor" class="form-label">เลือกแพทย์:</label>
+                        <select class="form-select" id="appointmentDoctor" required>
+                            <!-- เติมข้อมูลด้วย JavaScript -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="appointmentDate" class="form-label">วันที่:</label>
+                        <input type="date" class="form-control" id="appointmentDate" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="appointmentTime" class="form-label">เวลา:</label>
+                        <input type="time" class="form-control" id="appointmentTime" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                <button type="button" class="btn btn-primary" onclick="saveNewAppointment()">บันทึก</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function loadPatientAppointments() {
+    const storedUser = JSON.parse(localStorage.getItem('user'));
+    if (!storedUser) {
+        alert("กรุณาเข้าสู่ระบบก่อน");
+        return;
+    }
+
+    fetch(`http://localhost:3000/getappointments/${storedUser.user_id}`)
+        .then(response => response.json())
+        .then(appointments => {
+            const appointmentTable = document.getElementById("appointmentTableBody");
+            appointmentTable.innerHTML = "";
+
+            if (appointments.length === 0) {
+                appointmentTable.innerHTML = `<tr><td colspan="3" class="text-center">ไม่มีนัดหมาย</td></tr>`;
+                return;
+            }
+
+            // แยกการนัดหมายที่ยังไม่เสร็จสิ้น (ไม่ใช่ 'completed') และที่เสร็จสิ้น (ที่เป็น 'completed')
+            const ongoingAppointments = appointments.filter(app => app.status !== "completed");
+            const completedAppointments = appointments.filter(app => app.status === "completed");
+
+            // รวมทั้งสองรายการ (ให้การนัดหมายที่ยังไม่เสร็จสิ้นมาก่อน)
+            const allAppointments = [...ongoingAppointments, ...completedAppointments];
+
+            allAppointments.forEach(app => {
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${new Date(app.appointment_date).toLocaleString()}</td>
+                    <td>${app.doctor_name}</td>
+                    <td>${app.status}</td>
+                `;
+                appointmentTable.appendChild(row);
+            });
+        })
+        .catch(error => {
+            console.error("เกิดข้อผิดพลาดในการโหลดนัดหมาย:", error);
+        });
+}
+
+    document.addEventListener("DOMContentLoaded", function() {
+        const storedUser = localStorage.getItem('user');
+    
+        console.log("Stored user data:", storedUser);  // ดูข้อมูลที่เก็บใน localStorage
+    
+        if (!storedUser) {
+            alert("กรุณาเข้าสู่ระบบก่อน");
+            return;
+        }
+    
+        const userObj = JSON.parse(storedUser);
+        if (!userObj.user_id) {
+            alert("ไม่พบข้อมูลผู้ใช้");
+            return;
+        }
+    
+        console.log("Loaded user data:", userObj);  // ดูข้อมูลของ userObj ที่เก็บใน localStorage
+        console.log("โหลดข้อมูลคำแนะนำสำหรับ user ID:", userObj.user_id);
+    
+        loadLatestRecommendation(userObj.user_id);  // ส่ง user_id ไปยังฟังก์ชัน
+    });
+    
+    
+    
+    function loadLatestRecommendation() {
+    const storedUser = JSON.parse(localStorage.getItem('user'));
+    if (!storedUser || !storedUser.user_id) {
+        console.error("ไม่พบข้อมูลผู้ใช้");
+        return;
+    }
+
+    const patientId = storedUser.user_id; // ใช้ patient_id ของผู้ใช้ที่ล็อกอิน
+    console.log(`Loading recommendation for Patient ID: ${patientId}`);
+
+    fetch(`http://localhost:3000/getlatestadvice/${patientId}`)
+        .then(response => response.json())
+        .then(data => {
+            console.log("Advice Data received:", data);
+
+            if (data && data.advice) {
+                document.getElementById('latestRecommendation').textContent = data.advice;
+            } else {
+                document.getElementById('latestRecommendation').textContent = "ไม่พบคำแนะนำ";
+            }
+        })
+        .catch(error => {
+            console.error("Error fetching latest advice:", error);
+            document.getElementById('latestRecommendation').textContent = "เกิดข้อผิดพลาดในการดึงคำแนะนำ";
+        });
+}
+
+   
+// โหลดรายชื่อแพทย์
+document.addEventListener("DOMContentLoaded", function () {
+    fetch('http://localhost:3000/getdoctors/')
+        .then(response => response.json())
+        .then(data => {
+            let doctorDropdown = document.getElementById("appointmentDoctor");
+            doctorDropdown.innerHTML = '<option value="">-- เลือกแพทย์ --</option>'; // เคลียร์ก่อน
+            data.forEach(doctor => {
+                let option = document.createElement("option");
+                option.value = doctor.user_id;
+                option.textContent = doctor.name;
+                doctorDropdown.appendChild(option);
+            });
+        })
+        .catch(error => console.error("Error fetching doctors:", error));
+
+    // โหลดนัดหมายของผู้ใช้ที่ล็อกอิน
+    loadPatientAppointments();
+});
+
+// ฟังก์ชันบันทึกการนัดหมาย
+function saveNewAppointment() {
+    const storedUser = JSON.parse(localStorage.getItem('user'));
+    if (!storedUser) {
+        alert("กรุณาเข้าสู่ระบบก่อน");
+        return;
+    }
+
+    const doctorId = document.getElementById("appointmentDoctor").value;
+    const date = document.getElementById("appointmentDate").value;
+    const time = document.getElementById("appointmentTime").value;
+
+    if (!doctorId || !date || !time) {
+        alert("กรุณากรอกข้อมูลให้ครบถ้วน!");
+        return;
+    }
+
+    const appointmentData = {
+        patient_id: storedUser.user_id,  // ส่งค่า patient_id
+        doctor_id: doctorId,
+        appointment_date: `${date} ${time}`
+    };
+
+    fetch('http://localhost:3000/saveAppointment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(appointmentData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert("บันทึกการนัดหมายเรียบร้อย!");
+            document.getElementById("newAppointmentForm").reset();
+            loadPatientAppointments(); // โหลดรายการนัดหมายใหม่
+        } else {
+            alert("เกิดข้อผิดพลาด: " + data.message);
+        }
+    })
+    .catch(error => {
+        console.error("Error:", error);
+        alert("เกิดข้อผิดพลาดในการบันทึก");
+    });
+}   
+</script>
+
+<script>
+    document.getElementById('moodForm').addEventListener('submit', function(event) {
+        event.preventDefault();
+
+        const mood = document.querySelector('input[name="mood"]:checked');
+        if (!mood) {
+            alert("กรุณาเลือกระดับอารมณ์!");
+            return;
+        }
+
+        const note = document.getElementById('note').value;
+        const storedUser = JSON.parse(localStorage.getItem('user'));
+        
+        if (!storedUser) {
+            alert("กรุณาเข้าสู่ระบบก่อน");
+            return;
+        }
+
+        const today = new Date().toISOString().split('T')[0]; // รูปแบบ YYYY-MM-DD
+
+        axios.post('http://localhost:3000/adddaily', {
+            patient_id: storedUser.user_id,
+            record_date: today,
+            mood: mood.value,
+            note: note
+        })
+        .then(response => {
+            if (response.data.error) {
+                alert("ไม่สามารถบันทึกข้อมูลได้");
+            } else {
+                alert("บันทึกข้อมูลอารมณ์ประจำวันเรียบร้อยแล้ว");
+                document.getElementById('moodForm').reset();
+                loadMoodChart(storedUser.user_id);
+            }
+        })
+        .catch(error => {
+            console.error("Error saving mood data:", error);
+            alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
+        });
+    });
+
+    function loadMoodChart(patientId) {
+        const ctx = document.getElementById('moodChart').getContext('2d');
+
+        axios.get(`http://localhost:3000/getdaily/${patientId}`)
+        .then(response => {
+            console.log("API Response:", response.data); 
+
+            if (!Array.isArray(response.data)) {
+                console.error("Invalid data format from API");
+                return;
+            }
+
+            const data = response.data.filter(entry => entry.patient_id == patientId);
+            if (data.length === 0) {
+                console.warn("No mood data available for this patient");
+                return;
+            }
+
+            const moodCount = {
+                "happy": 0,
+                "neutral": 0,
+                "sad": 0,
+                "anxious": 0
+            };
+
+            data.forEach(entry => {
+                if (moodCount.hasOwnProperty(entry.mood)) {
+                    moodCount[entry.mood]++;
+                }
+            });
+
+            const labels = Object.keys(moodCount);
+            const moodData = Object.values(moodCount);
+            console.log("Labels:", labels);
+            console.log("Mood Data:", moodData);
+
+            new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'ระดับอารมณ์',
+                        data: moodData,
+                        backgroundColor: ['#6495ED', '#00CED1', '#DDA0DD', '#FF6699'],
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'แนวโน้มอารมณ์'
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    }
+                }
+            });
+        })
+        .catch(error => {
+            console.error("Error loading mood data:", error);
+        });
+    }
+</script>
+
+<!-- Doctor Page -->
+    <div id="doctorPage" class="container" style="display: none;">
+    <div class="row">
+        <!-- รายชื่อผู้ป่วย -->
+        <div class="col-md-6 d-flex flex-column">
+            <div class="card p-4 flex-grow-1">
+                <h3>รายชื่อผู้ป่วยที่ดูแล</h3>
+                <!-- ช่องค้นหาผู้ป่วย -->
+                <input type="text" id="searchPatient" class="form-control mb-3" placeholder="ค้นหาผู้ป่วย" onkeyup="filterPatients()">
+                <!-- ตารางรายชื่อผู้ป่วย -->
+                <div id="patientList" class="table-responsive"></div>
+            </div>
+        </div>
+        <!-- การนัดหมาย -->
+        <div class="col-md-6 d-flex flex-column">
+            <div class="card p-4 flex-grow-1">
+                <h3>การนัดหมาย</h3>
+                <div class="table-responsive" id="appointmentList"></div> <!-- ตรงนี้จะเป็นที่แสดงรายการการนัดหมาย -->
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-12 col-md-6">
+            <div class="card p-4">
+                <h3 class="text-center">แนวโน้มอารมณ์ของผู้ป่วย</h3>
+                <p id="noPatientSelected" class="text-muted text-center">กรุณาเลือกผู้ป่วยเพื่อดูแนวโน้มอารมณ์</p>
+                <div class="d-flex justify-content-center">
+                    <div id="chartContainer" style="display: none;">
+                        <canvas id="patientMoodChart"></canvas>
+                    </div>
+                </div>
+                <div id="noDataMessage" class="text-center"></div>
+            </div>
+        </div>
+    
+        <div class="col-12 col-md-6 mt-4 mt-md-0">
+            <div class="card p-4">
+                <h4 class="text-center">ให้คำแนะนำ</h4>
+                <div id="recommendationForm" style="display: none;">
+                    <form id="addRecommendationForm">
+                        <input type="hidden" id="selectedPatientId">
+                        <div class="mb-3">
+                            <label for="recommendation" class="form-label">คำแนะนำและแผนการรักษา:</label>
+                            <textarea class="form-control" id="recommendation" rows="4" required></textarea>
+                        </div>
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-primary">บันทึกคำแนะนำ</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    
+<script>
+    // โหลดรายชื่อผู้ป่วยสำหรับแพทย์
+    function loadPatientList() {
+        axios.get('http://localhost:3000/getusers/')
+        .then(response => {
+            const patients = response.data.filter(user => user.role === 'patient');
+            let patientHTML = `
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>ชื่อ</th>
+                            <th>อีเมล</th>
+                            <th>การจัดการ</th>
+                        </tr>
+                    </thead>
+                <tbody>
+            `;
+        patients.forEach((patient, index) => {
+            patientHTML += `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td>${patient.name}</td>
+                    <td>${patient.email}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="loadPatientMoodChart(${patient.user_id}, '${patient.name}')">ดูกราฟ</button>
+                        <button class="btn btn-sm btn-outline-primary ms-1" onclick="loadRecommendations(${patient.user_id}, '${patient.name}')">คำแนะนำ</button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        patientHTML += `</tbody></table>`;
+        document.getElementById('patientList').innerHTML = patientHTML;
+    })
+    .catch(error => {
+        console.error("There was an error!", error);
+        document.getElementById('patientList').innerHTML = '<p class="text-danger">เกิดข้อผิดพลาดในการโหลดข้อมูล</p>';
+    });
+}
+///////การค้นหา เพิ่มด้วยจาาา
+function filterPatients() {
+    let input = document.getElementById("searchPatient").value.toLowerCase();
+    let table = document.getElementById("patientList").getElementsByTagName("table")[0];
+    let rows = table.getElementsByTagName("tr");
+
+    for (let i = 1; i < rows.length; i++) { // ข้ามแถวหัวตาราง
+        let patientName = rows[i].getElementsByTagName("td")[1].textContent.toLowerCase();
+        if (patientName.includes(input)) {
+            rows[i].style.display = "";
+        } else {
+            rows[i].style.display = "none";
+        }
+    }
+}
+//--------
+
+//โหลดกราฟ
+function loadPatientMoodChart(patientId, patientName) {
+    console.log(`Loading mood chart for user ID: ${patientId}, Name: ${patientName}`);
+    alert(`แสดงกราฟอารมณ์ของ ${patientName} (ID: ${patientId})`);
+
+    const selectedPatientId = document.getElementById('selectedPatientId');
+    const chartContainer = document.getElementById('chartContainer');
+    const noDataMessage = document.getElementById('noDataMessage');
+    const canvas = document.getElementById('patientMoodChart');
+
+    if (!selectedPatientId || !chartContainer || !noDataMessage || !canvas) {
+        console.error("One or more required elements are missing in the HTML.");
+        return;
+    }
+
+    canvas.width = 400;
+    canvas.height = 400;
+
+    const ctx = canvas.getContext('2d'); 
+    selectedPatientId.value = patientId;
+    chartContainer.style.display = 'block';
+    noDataMessage.innerHTML = ''; 
+
+    axios.get(`http://localhost:3000/getdaily/${patientId}`)
+        .then(response => {
+            const data = response.data;
+
+            if (data.length > 0) {
+                chartContainer.style.display = 'block';
+                const moodCount = {
+                    "happy": 0,
+                    "neutral": 0,
+                    "sad": 0,
+                    "anxious": 0
+                };
+
+                data.forEach(entry => {
+                    if (moodCount.hasOwnProperty(entry.mood)) {
+                        moodCount[entry.mood]++;
+                    }
+                });
+
+                const totalEntries = data.length;
+                const labels = Object.keys(moodCount);
+                const moodData = Object.values(moodCount);
+
+                const moodPercentage = moodData.map(value => ((value / totalEntries) * 100).toFixed(2) + "%");
+
+                if (window.patientMoodChart instanceof Chart) {
+                    window.patientMoodChart.destroy();
+                }
+
+                // สร้างกราฟ Pie Chart พร้อมแสดงเปอร์เซ็นต์
+                window.patientMoodChart = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: labels.map((label, index) => `${label} (${moodPercentage[index]})`), 
+                        datasets: [{
+                            label: 'ระดับอารมณ์',
+                            data: moodData, 
+                            backgroundColor: ['#6495ED', '#00CED1', '#DDA0DD', '#FF6699'], 
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `สัดส่วนอารมณ์ของ ${patientName}`
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false,
+                            }
+                        }
+                    }
+                });
+
+            } else {
+                chartContainer.style.display = 'none';
+                noDataMessage.innerHTML = '<p class="text-center mt-3 text-warning">ยังไม่มีข้อมูลอารมณ์ของผู้ป่วยท่านนี้</p>';
+            }
+        })
+        .catch(error => {
+            console.error("Error loading patient mood data:", error);
+            noDataMessage.innerHTML = '<p class="text-center mt-3 text-danger">เกิดข้อผิดพลาดในการโหลดข้อมูล</p>';
+        });
+}
+
+    // ให้คำแนะนำและอัพเดทแผนการรักษา
+    function loadRecommendations(patientId, patientName) {
+    console.log(`Loading recommendations for Patient ID: ${patientId}`);
+    document.getElementById('recommendationForm').style.display = 'block';
+    document.getElementById('selectedPatientId').value = patientId;
+
+    const titleElement = document.querySelector('#recommendationForm h4'); 
+    if (titleElement) {
+        titleElement.innerText = `ให้คำแนะนำสำหรับ ${patientName}`;
+    }
+
+    // **เคลียร์ช่อง input เพื่อให้เพิ่มคำแนะนำใหม่**
+    document.getElementById('recommendation').value = '';
+}
+
+// ฟังก์ชันบันทึกคำแนะนำเมื่อกดปุ่ม "บันทึกคำแนะนำ"
+document.getElementById('addRecommendationForm').addEventListener('submit', async function(event) {
+    event.preventDefault();
+
+    const patientId = document.getElementById('selectedPatientId').value;
+    const recommendationText = document.getElementById('recommendation').value;
+    const doctorId = localStorage.getItem('user_id'); // ✅ ดึง user_id มาใช้
+
+    if (!doctorId) {
+        alert("ไม่พบข้อมูลแพทย์ กรุณาล็อกอินใหม่");
+        return;
+    }
+
+    if (!recommendationText) {
+        alert("กรุณากรอกคำแนะนำก่อนบันทึก!");
+        return;
+    }
+
+    console.log("Sending data to server:", { patient_id: patientId, recommendation: recommendationText, doctor_id: doctorId });
+
+    try {
+        const response = await axios.post(`http://localhost:3000/addrecommendations`, {
+            patient_id: patientId,
+            recommendation: recommendationText,
+            doctor_id: doctorId // ✅ ส่ง user_id เป็น doctor_id
+        });
+
+        console.log("Response from server:", response.data);
+
+        if (response.data.error) {
+            alert(`เกิดข้อผิดพลาด: ${response.data.msg}`);
+        } else {
+            alert("บันทึกคำแนะนำเรียบร้อยแล้ว!");
+            document.getElementById('recommendation').value = ''; // ✅ เคลียร์ input หลังบันทึกเสร็จ
+        }
+    } catch (error) {
+        console.error("Error saving recommendations:", error);
+        alert("เกิดข้อผิดพลาดในการบันทึกคำแนะนำ");
+    }
+});
+    //การนัดหมายของหมอ
+    function loadDoctorAppointments(doctorId) {
+    axios.get(`http://localhost:3000/getappointments/doctor/${doctorId}`)
+    .then(response => {
+        let appointments = response.data;
+
+        // เรียงลำดับตามวันที่ จากเก่าไปใหม่
+        appointments.sort((a, b) => new Date(a.appointment_date).getTime() - new Date(b.appointment_date).getTime());
+
+        let appointmentHTML = `        
+            <div class="appointment-block">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ผู้ป่วย</th>
+                            <th>วันที่</th>
+                            <th>สถานะ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        if (appointments.length > 0) {
+            appointments.forEach(app => {
+                const appDate = new Date(app.appointment_date);
+                appointmentHTML += `
+<tr>
+    <td>${app.patient_name}</td>
+    <td>${appDate.toLocaleString()}</td>
+    <td>
+        <select class="form-control" id="status_${app.appointment_id}" 
+            onchange="updateAppointmentStatus(${app.appointment_id}, this.value)">
+            <option value="pending" ${app.status === 'pending' ? 'selected' : ''}>รอดำเนินการ</option>
+            <option value="confirmed" ${app.status === 'confirmed' ? 'selected' : ''}>ยืนยัน</option>
+            <option value="canceled" ${app.status === 'canceled' ? 'selected' : ''}>ยกเลิก</option>
+            <option value="complete" ${app.status === 'complete' ? 'selected' : ''}>เสร็จสิ้น</option>
+        </select>
+    </td>
+</tr>
+
+                `;
+            });
+        } else {
+            appointmentHTML += `<tr><td colspan="3" class="text-center">ไม่มีการนัดหมาย</td></tr>`;
+        }
+
+        appointmentHTML += `</tbody></table></div>`;
+        document.getElementById('appointmentList').innerHTML = appointmentHTML;
+    })
+    .catch(error => {
+        console.error('Error loading appointments:', error);
+        document.getElementById('appointmentList').innerHTML = '<div class="alert alert-danger">เกิดข้อผิดพลาดในการโหลดข้อมูลการนัดหมาย</div>';
+    });
+}
+// ฟังก์ชันเปลี่ยนสีของ <select> ตามค่าที่เลือก
+function updateSelectColor(selectElement) {
+    if (!selectElement) return;
+
+    // ลบคลาสสีเก่าออกก่อน
+    selectElement.classList.remove("status-pending", "status-confirmed", "status-canceled", "status-complete");
+
+    // เพิ่มคลาสสีใหม่ตามสถานะ
+    let status = selectElement.value;
+    if (status === "pending") {
+        selectElement.classList.add("status-pending");
+    } else if (status === "confirmed") {
+        selectElement.classList.add("status-confirmed");
+    } else if (status === "canceled") {
+        selectElement.classList.add("status-canceled");
+    } else if (status === "complete") {
+        selectElement.classList.add("status-complete");
+    }
+}
+
+// ฟังก์ชันอัปเดตสถานะ และเปลี่ยนสี
+function updateAppointmentStatus(id, value) {
+    console.log(`Updating appointment ${id} to status: ${value}`);
+    let selectElement = document.getElementById(`status_${id}`);
+    updateSelectColor(selectElement);
+}
+
+// ทำให้สีถูกต้องตอนโหลดข้อมูลการนัดหมาย
+document.addEventListener("DOMContentLoaded", function () {
+    setTimeout(() => {
+        document.querySelectorAll(".form-control").forEach(selectElement => {
+            updateSelectColor(selectElement);
+        });
+    }, 500); // รอ 500ms เพื่อให้ DOM โหลดเสร็จ
+});
+
+
+
+
+
+// ฟังก์ชันอัปเดตสถานะการนัดหมาย
+function updateAppointmentStatus(appointmentId, newStatus) {
+    axios.put(`http://localhost:3000/updateappointmentstatus/${appointmentId}`, {
+        status: newStatus
+    })
+    .then(response => {
+        alert(`สถานะการนัดหมายถูกอัพเดตเป็น ${newStatus}`);
+        const doctorId = 1; // หรือเปลี่ยนเป็น doctorId ที่ถูกต้อง
+        loadDoctorAppointments(doctorId);
+    })
+    .catch(error => {
+        console.error('Error updating appointment status:', error);
+        alert('เกิดข้อผิดพลาดในการอัพเดตสถานะการนัดหมาย');
+    });
+}
+
+// ฟังก์ชันแก้ไขการนัดหมาย
+function editAppointment(appointmentId) {
+    // ลบฟังก์ชันแก้ไขวันที่ออก
+    alert('ฟังก์ชันแก้ไขวันที่ถูกลบไปแล้ว');
+}
+
+// เมื่อหน้าแพทย์โหลด ให้เรียกข้อมูลการนัดหมาย
+document.addEventListener("DOMContentLoaded", function() {
+    const doctorId = 1; 
+    loadDoctorAppointments(doctorId);
+    loadPatientList();
+});
+</script>
+
+<!-- Bootstrap Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // ตรวจสอบว่ามีการล็อกอินไว้หรือไม่
+        document.addEventListener('DOMContentLoaded', function() {
+            const storedUser = localStorage.getItem('user');
+            if (storedUser) {
+                const user = JSON.parse(storedUser);
+                if (user.role === 'patient') {
+                    showPatientPage(user);
+                } else if (user.role === 'doctor') {
+                    showDoctorPage(user);
+                }
+            }
+        });
+
+        // แสดงหน้าสมัครสมาชิก
+        function showRegisterPage() {
+            document.getElementById('loginPage').style.display = 'none';
+            document.getElementById('registerPage').style.display = 'block';
+        }
+
+        // แสดงหน้าล็อกอิน
+        function showLoginPage() {
+            document.getElementById('registerPage').style.display = 'none';
+            document.getElementById('loginPage').style.display = 'block';
+        }
+
+        // ล็อกเอาท์
+        function logout() {
+            localStorage.removeItem('user');
+            document.getElementById('patientPage').style.display = 'none';
+            document.getElementById('doctorPage').style.display = 'none';
+            document.getElementById('loginPage').style.display = 'block';
+            document.getElementById('userInfo').textContent = '';
+            document.getElementById('doctorNavItem').style.display = 'none';
+        }
+
+        // แสดงหน้าผู้ป่วย
+        function showPatientPage(user) {
+            document.getElementById('loginPage').style.display = 'none';
+            document.getElementById('doctorPage').style.display = 'none';
+            document.getElementById('patientPage').style.display = 'block';
+            document.getElementById('userInfo').textContent = `ยินดีต้อนรับ ${user.name} (ผู้ป่วย)`;
+            loadMoodChart(user.user_id);
+            loadPatientAppointments(user.user_id);
+            loadDoctorsForAppointment();
+        }
+
+        // แสดงหน้าแพทย์
+        function showDoctorPage(user) {
+            document.getElementById('loginPage').style.display = 'none';
+            document.getElementById('patientPage').style.display = 'none';
+            document.getElementById('doctorPage').style.display = 'block';
+            document.getElementById('doctorNavItem').style.display = 'block';
+            document.getElementById('userInfo').textContent = `ยินดีต้อนรับ ${user.name} (แพทย์)`;
+            loadPatientList();
+            loadAppointments(user.user_id);
+        }
+
+        // ฟังก์ชันล็อกอิน
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+    
+            axios.post('http://localhost:3000/login', {
+                email: email,
+                password: password
+            })
+            .then(response => {
+                if (response.data.error) {
+                    alert(response.data.msg);
+                } else {
+                    const user = response.data.user;
+                    localStorage.setItem('user', JSON.stringify(user));
+                    if (user.role === 'patient') {
+                        showPatientPage(user);
+                    } else if (user.role === 'doctor') {
+                        showDoctorPage(user);
+                    }
+                }
+            })
+            .catch(error => {
+                console.error("There was an error!", error);
+                alert("เกิดข้อผิดพลาดในการเข้าสู่ระบบ");
+            });
+        });
+
+        // ฟังก์ชันสมัครสมาชิก
+        document.getElementById('registerForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const name = document.getElementById('reg_name').value;
+            const email = document.getElementById('reg_email').value;
+            const password = document.getElementById('reg_password').value;
+            const confirmPassword = document.getElementById('reg_confirm_password').value;
+            const role = document.getElementById('reg_role').value;
+
+            if (password !== confirmPassword) {
+                alert("รหัสผ่านไม่ตรงกัน");
+                return;
+            }
+
+            axios.post('http://localhost:3000/addusers', {
+                user_name: name,
+                users_email: email,
+                password: password,
+                role: role
+            })
+            .then(response => {
+                if (response.data.error) {
+                    alert("ไม่สามารถสมัครสมาชิกได้: " + response.data.details);
+                } else {
+                    alert("สมัครสมาชิกสำเร็จ กรุณาเข้าสู่ระบบ");
+                    showLoginPage();
+                }
+            })
+            .catch(error => {
+                console.error("There was an error!", error);
+                alert("เกิดข้อผิดพลาดในการสมัครสมาชิก");
+            });
+        });
+
+    </script>
+</html>
